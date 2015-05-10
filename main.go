@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -20,18 +21,9 @@ func main() {
 	// net.Conn and a ssh.ServerConfig to ssh.NewServerConn, in effect, upgrading the net.Conn
 	// into an ssh.ServerConn
 
-	config := &ssh.ServerConfig{
-		//Define a function to run when a client attempts a password login
-		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
-			// Should use constant-time compare (or better, salt+hash) in a production setting.
-			if c.User() == "foo" && string(pass) == "bar" {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("password rejected for %q", c.User())
-		},
-		// You may also explicitly allow anonymous client authentication, though anon bash
-		// sessions may not be a wise idea
-		// NoClientAuth: true,
+	config, err := generateConfig()
+	if err != nil {
+		log.Fatalf("generateConfig err: %s", err)
 	}
 
 	// You can generate a keypair with 'ssh-keygen -t rsa'
@@ -188,3 +180,66 @@ func handleChannel(newChannel ssh.NewChannel) {
 		}
 	}()
 }
+
+func generateConfig() (*ssh.ServerConfig, error) {
+	// An SSH server is represented by a ServerConfig, which holds
+	// certificate details and handles authentication of ServerConns.
+	certCheck := NewCertChecker()
+	config := &ssh.ServerConfig{
+		PublicKeyCallback: certCheck.Authenticate,
+	}
+	p, err := ssh.ParsePrivateKey([]byte(privateKey))
+	if err != nil {
+		return nil, err
+	}
+	config.AddHostKey(p)
+	return config, nil
+}
+
+func NewCertChecker() *ssh.CertChecker {
+	key, _, _, _, err := ssh.ParseAuthorizedKey([]byte(Pubkey))
+	if err != nil {
+		log.Fatalf("ParseAuthorizedKey: %v", err)
+	}
+	validCert, ok := key.(*ssh.Certificate)
+	if !ok {
+		log.Fatalf("key is not *ssh.Certificate (%T)", key)
+	}
+	return &ssh.CertChecker{
+		IsAuthority: func(auth ssh.PublicKey) bool {
+			return bytes.Equal(auth.Marshal(), validCert.SignatureKey.Marshal())
+		},
+	}
+}
+
+var Pubkey = `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCzW4xPbwHP3lNhiCzPG7JtB0/Muny7kx6X007UF3HW+Qfd09HsH1twncH+7Jp269rBOkVrqxSM1p/IdTQZSI8pW5cyyBXiTMmDTlUrorxGxCVooQA27RCyAv1DlAIOELIQIdzG1w9rtUR/4EkuFTAElfrLyD0ZvAc3d8f4XCl3TzrRNB8UulIPcLMNbPMvkHlzVLbLY8i3Lqznxp8BnCahqwrUDRS4uabisQ0HIqqA5azXa/ksWQpB4MNH67VxGPSYoV/QvE1rrqP0ckcJq0BL5yYRnMFoU+mQHw14l5wjnM6lgf+ePdLIFCZFt7B7uV+YVBMFalFtA3EoQZ5l040X`
+
+const privateKey = `
+-----BEGIN RSA PRIVATE KEY-----
+MIIEogIBAAKCAQEAs1uMT28Bz95TYYgszxuybQdPzLp8u5Mel9NO1Bdx1vkH3dPR
+7B9bcJ3B/uyaduvawTpFa6sUjNafyHU0GUiPKVuXMsgV4kzJg05VK6K8RsQlaKEA
+Nu0QsgL9Q5QCDhCyECHcxtcPa7VEf+BJLhUwBJX6y8g9GbwHN3fH+Fwpd0860TQf
+FLpSD3CzDWzzL5B5c1S2y2PIty6s58afAZwmoasK1A0UuLmm4rENByKqgOWs12v5
+LFkKQeDDR+u1cRj0mKFf0LxNa66j9HJHCatAS+cmEZzBaFPpkB8NeJecI5zOpYH/
+nj3SyBQmRbewe7lfmFQTBWpRbQNxKEGeZdONFwIDAQABAoIBAAFjNOusZSwxgR2h
+Cw+zHCdBxjlEPBDLa5IrHVIAuG28UXZC3D3iZDez0LtjIzLGUlPqWn0hvq/0PRo0
+5elIKWtdfQb0i07L30c3xOrogGJfxBZSIIlMPjPSWBk8vONU97uuN2IGaeUgat4+
+YvKLUWrHqkAHVYmsbbXdJFvkgqGcpPebHOoOkISA+/4m4hapOB828K34d8ynJ93c
+e+r8Ode/fvq197yaVUUxNisqjtDKQDb9CdOVxKlAH1y0avF19C/vhA/xbDh02Xs8
+roShbWKO18vofrKShWDDiQw58VYfNKLvib32yJtsPBnU7GGXsvd5mUsVTiXe/mRS
+K93TY8kCgYEA7XrrFbXy6lxCd9nRuiUDFbYFoZ8px1LJTn65hNqYbN21aMZZgX2m
+uN8l47iRorr2IMsfWEEArCDmQQa6hUAvMIMsQqevvOBDMqq5wNForKNDxeoeUKWP
+PZRHgC5QHXGacPnIdDRYuqR2g26HIj5O8fKbDgZGiyKReIIw3noAV80CgYEAwVhD
+uYFgnTAmaBJX8hN8VOCfa4+fnNmQBos1m67EsjRjVzgkdCRRGa12Rug0Idqat1nu
+TMk26v7AoymSUBAlBUaV73weJ5R5G2fvLjQ/ihKO/9aOzB6OKhKbj24iWc2BuwL9
+Xjimswx4AbvpQLmWlHBrYIy5Hg9L9/wfzY5IjHMCgYBtdU1ryVx4tyOP2F75nFuq
+oyY/U3xPOhI9Ut2xpYvCCgK2k03oCIFTDs+JAaZmyiPuA5Gj/PoRXGykpjRMfMQD
+aUJ6So4O0ZNHhDdv71V+1RXE4F8urtCyAmleZHpax+T2k7rYDNSk2m8hr00r9Gow
+zLC5Kx1SvhEs6V0a/kKwNQKBgEyAKxPcUCkB40BseaXL9fbzhcCebG44W1drf4Oh
+DCzis6fQDAR0Vi6Nxu3ZdL8sauk/SR3Sw8sJj5k/mqfZK3zB6BOBDcFlauHgJvAm
+Njngi/pIn+m98UxOXoTK9AaKXNltHmlIixTvSxCMlIdKp30GWkYyiBCPxuRROxgv
+Qx9nAoGAYanyGJ9Jbyr/T5hunH/uymdLD9R/sgQG04r7qiPlXi47uOFW7k7h7M6M
+NJg4Jn3vy07680dvZJCVdxfVq57SPESY3kcxj5hQWJ2WFKBuSKeg0k+8AsLy6oMp
+QKFOuE95M2RA4x/B4AVy1sjo5VyZTnFK5VvlJfRsLiXYh4x7YvE=
+-----END RSA PRIVATE KEY-----
+`

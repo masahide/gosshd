@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"os/exec"
@@ -26,13 +25,14 @@ func main() {
 		log.Fatalf("generateConfig err: %s", err)
 	}
 
-	// You can generate a keypair with 'ssh-keygen -t rsa'
-	privateBytes, err := ioutil.ReadFile("id_rsa")
-	if err != nil {
-		log.Fatal("Failed to load private key (./id_rsa)")
-	}
-
-	private, err := ssh.ParsePrivateKey(privateBytes)
+	/*
+		// You can generate a keypair with 'ssh-keygen -t rsa'
+		privateBytes, err := ioutil.ReadFile("id_rsa")
+		if err != nil {
+			log.Fatal("Failed to load private key (./id_rsa)")
+		}
+	*/
+	private, err := ssh.ParsePrivateKey([]byte(privateKey))
 	if err != nil {
 		log.Fatal("Failed to parse private key")
 	}
@@ -201,13 +201,16 @@ func NewCertChecker() *ssh.CertChecker {
 	if err != nil {
 		log.Fatalf("ParseAuthorizedKey: %v", err)
 	}
-	validCert, ok := key.(*ssh.Certificate)
-	if !ok {
-		log.Fatalf("key is not *ssh.Certificate (%T)", key)
-	}
+	/*
+		validCert, ok := key.(*ssh.Certificate)
+		if !ok {
+			log.Fatalf("key is not *ssh.Certificate (%T)", key)
+		}
+	*/
 	return &ssh.CertChecker{
 		IsAuthority: func(auth ssh.PublicKey) bool {
-			return bytes.Equal(auth.Marshal(), validCert.SignatureKey.Marshal())
+			//return bytes.Equal(auth.Marshal(), validCert.SignatureKey.Marshal())
+			return bytes.Equal(auth.Marshal(), key.Marshal())
 		},
 	}
 }

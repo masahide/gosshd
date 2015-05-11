@@ -1,0 +1,91 @@
+package key
+
+import (
+	"bytes"
+	"log"
+
+	"golang.org/x/crypto/ssh"
+)
+
+var ClientPubkey = `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDVZOxhO0xd0GtHuYEGUgoOLmTLD3uAIssLn/KT827jmy1LX7V235Jpg79VVdRfOBpdBItjaj7XA1MdZobU9otZNgoVnjipNYppkA4AOoZutpBEg/KLpmyBkqgyUlbTJrHy2OiO4PchlV/yjBG33OCASZpAp6dTgjxFKyVexKtUhRNFzUZgzCJZKalH6oT9NGn4jIFO2vmSN81FsA3QJTB1vZyEecqu7FF0ieNlCyJsl+VD3xZojBaBjVTpfWMh3tovxSWMbJj4dlFiIN85gi/nsxHr1zRa0SstPui/aKI5QV1E0WN8hKeQXkEwXm9erDKX4krULX46j7mv+k5IXgED`
+
+const ClientPrivateKey = `
+-----BEGIN RSA PRIVATE KEY-----
+MIIEowIBAAKCAQEA1WTsYTtMXdBrR7mBBlIKDi5kyw97gCLLC5/yk/Nu45stS1+1
+dt+SaYO/VVXUXzgaXQSLY2o+1wNTHWaG1PaLWTYKFZ44qTWKaZAOADqGbraQRIPy
+i6ZsgZKoMlJW0yax8tjojuD3IZVf8owRt9zggEmaQKenU4I8RSslXsSrVIUTRc1G
+YMwiWSmpR+qE/TRp+IyBTtr5kjfNRbAN0CUwdb2chHnKruxRdInjZQsibJflQ98W
+aIwWgY1U6X1jId7aL8UljGyY+HZRYiDfOYIv57MR69c0WtErLT7ov2iiOUFdRNFj
+fISnkF5BMF5vXqwyl+JK1C1+Oo+5r/pOSF4BAwIDAQABAoIBAEW9J+tW38xBEu5r
+15jjMtoTm2kpdCkaNdVkvnhPtEu6KQFbFAj3Y/gL0HnpBPDheuwvUgZ5cHQAaCdR
+nHr43+2V1ZHfFZFnKAb7xzeX6NtB2sAphxjQmOF3tnRLqIh1Ou6sqMQZDWryUFsK
+H7hA/TWv2DONFwgZpezM/veLuppyEmHpGxKb3PIBVLB8s664rXPAJ+r7BSIOcP2L
+cQv1MU1NUoLm6qAzWVg1wTWhU5bPRnUeveWpVyGEXr/eZy2NJx4aGQAwOhAxCUuB
+vQUxCOtrR8oPywEuoKmPFNOE895IhB+201xNvkLm+jnUZZMpV6UkBvp08LkCcsXw
+elZxJgECgYEA7Ysq4GPka1DkD6JfIHG4GCFCRZwvP5z7iVyCALSIlarIzJ1cJWLd
+hhiowcxkEDDZda1Id3WSwTOhdhha1jIfKSTb2sSCBz9BQxo0wwPGghU6z2eLXbj3
+gdwmLy+VA1f4/YlzbHoIyEDSJVZFw+RkBLEln1Sz6DWf3igpeZgyQ4ECgYEA5flq
+VEDzrECvRsUPCUgwOkPxhnWnWbP6wLIfCB5t/55jwg8drNyWpxOBZeysOFxEuEFN
+7+k0tD7LnoJgsPxqIIuHvvr2hM9ITjh9u+KRB+pG4Zz+x4lT9j3CqWsuxzeTXAYb
+ZnEgpMJliU3KLCoLnjOq6C/xjT8n5M0T7d+IdoMCgYAcbl+/Y7VfMttZE7IXDAVg
+vfpUopD1KDDjC/Nzaig+4aYO93aj8uVYu3LXX0NKvM4KS6c0xRm/jhJxNBELOgyI
+vCSkVojJnUSOZ4CRJs6Hm0risB36Jb1aCaN4WlWXhNwEXIM4JJMQhNGiLmVDQP7H
+oPxDybuOu3xa9qugJhs+AQKBgQCpvpgKCksRaEk3bjoz+rGGQCIkwfC9GEhMNO0M
+vBEq7MjrMucPcV5NgesvxSo1C325lpIlM7ewFu2KWOdvm0/mJ7cRcwHEc48GFVJQ
+/OFZu0WIP64ar7Vmep2VGUTUzKOa9/L/gR68HbR+TQmd4YbjxXUvnjunqucSTYCZ
+QjXiawKBgEzjhKuX6FJ6xy7fWuSmr1DZFdEIk+iTYn3GMWubuZazaiasAmuimE6+
+OEHJcY65Jdf+5HEh1DI0YVwKuD+6Z/Qguz8fRgIJ4xXZUoNLS9VYQiEW5ai+H+Bj
+UDdO07IAWiqtKYznftZ6tLr3CtKFoigmeLoYc4q1pFvoxngVAJsr
+-----END RSA PRIVATE KEY-----
+`
+
+var ServerPubkey = `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCzW4xPbwHP3lNhiCzPG7JtB0/Muny7kx6X007UF3HW+Qfd09HsH1twncH+7Jp269rBOkVrqxSM1p/IdTQZSI8pW5cyyBXiTMmDTlUrorxGxCVooQA27RCyAv1DlAIOELIQIdzG1w9rtUR/4EkuFTAElfrLyD0ZvAc3d8f4XCl3TzrRNB8UulIPcLMNbPMvkHlzVLbLY8i3Lqznxp8BnCahqwrUDRS4uabisQ0HIqqA5azXa/ksWQpB4MNH67VxGPSYoV/QvE1rrqP0ckcJq0BL5yYRnMFoU+mQHw14l5wjnM6lgf+ePdLIFCZFt7B7uV+YVBMFalFtA3EoQZ5l040X`
+
+const ServerPrivateKey = `
+-----BEGIN RSA PRIVATE KEY-----
+MIIEogIBAAKCAQEAs1uMT28Bz95TYYgszxuybQdPzLp8u5Mel9NO1Bdx1vkH3dPR
+7B9bcJ3B/uyaduvawTpFa6sUjNafyHU0GUiPKVuXMsgV4kzJg05VK6K8RsQlaKEA
+Nu0QsgL9Q5QCDhCyECHcxtcPa7VEf+BJLhUwBJX6y8g9GbwHN3fH+Fwpd0860TQf
+FLpSD3CzDWzzL5B5c1S2y2PIty6s58afAZwmoasK1A0UuLmm4rENByKqgOWs12v5
+LFkKQeDDR+u1cRj0mKFf0LxNa66j9HJHCatAS+cmEZzBaFPpkB8NeJecI5zOpYH/
+nj3SyBQmRbewe7lfmFQTBWpRbQNxKEGeZdONFwIDAQABAoIBAAFjNOusZSwxgR2h
+Cw+zHCdBxjlEPBDLa5IrHVIAuG28UXZC3D3iZDez0LtjIzLGUlPqWn0hvq/0PRo0
+5elIKWtdfQb0i07L30c3xOrogGJfxBZSIIlMPjPSWBk8vONU97uuN2IGaeUgat4+
+YvKLUWrHqkAHVYmsbbXdJFvkgqGcpPebHOoOkISA+/4m4hapOB828K34d8ynJ93c
+e+r8Ode/fvq197yaVUUxNisqjtDKQDb9CdOVxKlAH1y0avF19C/vhA/xbDh02Xs8
+roShbWKO18vofrKShWDDiQw58VYfNKLvib32yJtsPBnU7GGXsvd5mUsVTiXe/mRS
+K93TY8kCgYEA7XrrFbXy6lxCd9nRuiUDFbYFoZ8px1LJTn65hNqYbN21aMZZgX2m
+uN8l47iRorr2IMsfWEEArCDmQQa6hUAvMIMsQqevvOBDMqq5wNForKNDxeoeUKWP
+PZRHgC5QHXGacPnIdDRYuqR2g26HIj5O8fKbDgZGiyKReIIw3noAV80CgYEAwVhD
+uYFgnTAmaBJX8hN8VOCfa4+fnNmQBos1m67EsjRjVzgkdCRRGa12Rug0Idqat1nu
+TMk26v7AoymSUBAlBUaV73weJ5R5G2fvLjQ/ihKO/9aOzB6OKhKbj24iWc2BuwL9
+Xjimswx4AbvpQLmWlHBrYIy5Hg9L9/wfzY5IjHMCgYBtdU1ryVx4tyOP2F75nFuq
+oyY/U3xPOhI9Ut2xpYvCCgK2k03oCIFTDs+JAaZmyiPuA5Gj/PoRXGykpjRMfMQD
+aUJ6So4O0ZNHhDdv71V+1RXE4F8urtCyAmleZHpax+T2k7rYDNSk2m8hr00r9Gow
+zLC5Kx1SvhEs6V0a/kKwNQKBgEyAKxPcUCkB40BseaXL9fbzhcCebG44W1drf4Oh
+DCzis6fQDAR0Vi6Nxu3ZdL8sauk/SR3Sw8sJj5k/mqfZK3zB6BOBDcFlauHgJvAm
+Njngi/pIn+m98UxOXoTK9AaKXNltHmlIixTvSxCMlIdKp30GWkYyiBCPxuRROxgv
+Qx9nAoGAYanyGJ9Jbyr/T5hunH/uymdLD9R/sgQG04r7qiPlXi47uOFW7k7h7M6M
+NJg4Jn3vy07680dvZJCVdxfVq57SPESY3kcxj5hQWJ2WFKBuSKeg0k+8AsLy6oMp
+QKFOuE95M2RA4x/B4AVy1sjo5VyZTnFK5VvlJfRsLiXYh4x7YvE=
+-----END RSA PRIVATE KEY-----
+`
+
+func NewCertChecker(pubkey []byte) *ssh.CertChecker {
+	key, _, _, _, err := ssh.ParseAuthorizedKey(pubkey)
+	if err != nil {
+		log.Fatalf("ParseAuthorizedKey: %v", err)
+	}
+	/*
+		validCert, ok := key.(*ssh.Certificate)
+		if !ok {
+			log.Fatalf("key is not *ssh.Certificate (%T)", key)
+		}
+	*/
+	return &ssh.CertChecker{
+		IsAuthority: func(auth ssh.PublicKey) bool {
+			//return bytes.Equal(auth.Marshal(), validCert.SignatureKey.Marshal())
+			return bytes.Equal(auth.Marshal(), key.Marshal())
+		},
+	}
+}

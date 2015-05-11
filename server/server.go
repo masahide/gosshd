@@ -1,18 +1,16 @@
-package main
+package server
 
 import (
-	"bytes"
-	"fmt"
 	"io"
 	"log"
 	"net"
-	"os/exec"
-	"sync"
+	"os"
 
+	"github.com/masahide/gosshd/key"
 	"golang.org/x/crypto/ssh"
 )
 
-func startServe() {
+func StartServe() {
 
 	config, err := generateConfig()
 	if err != nil {
@@ -33,12 +31,14 @@ func startServe() {
 			log.Printf("Failed to accept incoming connection (%s)", err)
 			continue
 		}
+		log.Printf("Accept: %s", tcpConn.RemoteAddr())
 		// Before use, a handshake must be performed on the incoming net.Conn.
 		sshConn, chans, reqs, err := ssh.NewServerConn(tcpConn, config)
 		if err != nil {
 			log.Printf("Failed to handshake (%s)", err)
 			continue
 		}
+		log.Printf("ssh.NewServerConn: %s", tcpConn.RemoteAddr())
 
 		log.Printf("New SSH connection from %s (%s)", sshConn.RemoteAddr(), sshConn.ClientVersion())
 		// Discard all global out-of-band Requests
@@ -60,10 +60,12 @@ func handleChannel(newChannel ssh.NewChannel) {
 	// channel type of "session". The also describes
 	// "x11", "direct-tcpip" and "forwarded-tcpip"
 	// channel types.
-	if t := newChannel.ChannelType(); t != "session" {
-		newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unknown channel type: %s", t))
-		return
-	}
+	/*
+		if t := newChannel.ChannelType(); t != "session" {
+			newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unknown channel type: %s", t))
+			return
+		}
+	*/
 
 	// At this point, we have the opportunity to reject the client's
 	// request for another logical connection
@@ -72,33 +74,35 @@ func handleChannel(newChannel ssh.NewChannel) {
 		log.Printf("Could not accept channel (%s)", err)
 		return
 	}
-	bash := exec.Command("bash")
-	stdout, err := bash.StdoutPipe()
-	if err != nil {
-		log.Printf("Could not Open StdoutPipe (%s)", err)
-		return
-	}
-	// Prepare teardown function
-	close := func() {
-		connection.Close()
-		_, err := bash.Process.Wait()
-		if err != nil {
-			log.Printf("Failed to exit bash (%s)", err)
-		}
-		log.Printf("Session closed")
-	}
-	//pipe session to bash and visa-versa
-	var once sync.Once
-	go func() {
-		io.Copy(connection, stdout)
-		once.Do(close)
-	}()
+	log.Printf("Accept channel type: %s", newChannel.ChannelType())
 	/*
-		go func() {
-			io.Copy(bashf, connection)
-			once.Do(close)
-		}()
+		bash := exec.Command("bash")
+		stdout, err := bash.StdoutPipe()
+		if err != nil {
+			log.Printf("Could not Open StdoutPipe (%s)", err)
+			return
+		}
+		// Prepare teardown function
+		close := func() {
+			connection.Close()
+			_, err := bash.Process.Wait()
+			if err != nil {
+				log.Printf("Failed to exit bash (%s)", err)
+			}
+			log.Printf("Session closed")
+		}
+		//pipe session to bash and visa-versa
 	*/
+	//var once sync.Once
+	go func() {
+		//	io.Copy(connection, stdout)
+		io.Copy(connection, os.Stdin)
+		//once.Do(close)
+	}()
+	go func() {
+		io.Copy(os.Stdout, connection)
+		//once.Do(close)
+	}()
 	/*
 		// Fire up bash for this session
 		bash := exec.Command("bash")
@@ -176,33 +180,14 @@ func generateConfig() (*ssh.ServerConfig, error) {
 		}
 		config.AddHostKey(private)
 	*/
-	certCheck := NewCertChecker()
+	certCheck := key.NewCertChecker([]byte(key.ClientPubkey))
 	config := &ssh.ServerConfig{
 		PublicKeyCallback: certCheck.Authenticate,
 	}
-	p, err := ssh.ParsePrivateKey([]byte(ServerPrivateKey))
+	p, err := ssh.ParsePrivateKey([]byte(key.ServerPrivateKey))
 	if err != nil {
 		return nil, err
 	}
 	config.AddHostKey(p)
 	return config, nil
-}
-
-func NewCertChecker() *ssh.CertChecker {
-	key, _, _, _, err := ssh.ParseAuthorizedKey([]byte(ClientPubkey))
-	if err != nil {
-		log.Fatalf("ParseAuthorizedKey: %v", err)
-	}
-	/*
-		validCert, ok := key.(*ssh.Certificate)
-		if !ok {
-			log.Fatalf("key is not *ssh.Certificate (%T)", key)
-		}
-	*/
-	return &ssh.CertChecker{
-		IsAuthority: func(auth ssh.PublicKey) bool {
-			//return bytes.Equal(auth.Marshal(), validCert.SignatureKey.Marshal())
-			return bytes.Equal(auth.Marshal(), key.Marshal())
-		},
-	}
 }

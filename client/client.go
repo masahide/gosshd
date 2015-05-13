@@ -1,8 +1,11 @@
 package client
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
 	"sync"
 
@@ -11,16 +14,26 @@ import (
 )
 
 func generateConfig(user string) (*ssh.ClientConfig, error) {
-	certCheck := key.NewCertChecker([]byte(key.ServerPubkey))
-	serverPubkey, err := ssh.ParsePrivateKey([]byte(key.ClientPrivateKey))
+	//certCheck := key.NewCertChecker([]byte(key.ServerPubkey))
+	svpub, _, _, _, err := ssh.ParseAuthorizedKey([]byte(key.ServerPubkey))
+	pubMarshal := svpub.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	clientPrivatekey, err := ssh.ParsePrivateKey([]byte(key.ClientPrivateKey))
 	if err != nil {
 		return nil, err
 	}
 	config := &ssh.ClientConfig{
-		User:            user,
-		HostKeyCallback: certCheck.CheckHostKey,
+		User: user,
+		HostKeyCallback: func(hostname string, remote net.Addr, pubkey ssh.PublicKey) error {
+			if bytes.Equal(pubMarshal, pubkey.Marshal()) {
+				return nil
+			}
+			return fmt.Errorf("host key is not match. remote:%s(%s)", hostname, remote)
+		},
 		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(serverPubkey),
+			ssh.PublicKeys(clientPrivatekey),
 		},
 	}
 	return config, nil

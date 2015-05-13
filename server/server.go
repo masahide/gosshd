@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bytes"
+	"errors"
 	"io"
 	"log"
 	"net"
@@ -180,9 +182,23 @@ func generateConfig() (*ssh.ServerConfig, error) {
 		}
 		config.AddHostKey(private)
 	*/
-	certCheck := key.NewCertChecker([]byte(key.ClientPubkey))
+	okey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(key.ClientPubkey))
+	if err != nil {
+		return nil, err
+	}
+
 	config := &ssh.ServerConfig{
-		PublicKeyCallback: certCheck.Authenticate,
+		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+			if bytes.Compare(okey.Marshal(), key.Marshal()) == 0 {
+				perms := ssh.Permissions{}
+				return &perms, nil
+			} else {
+				return nil, errors.New("Key does not match")
+			}
+		},
+		AuthLogCallback: func(conn ssh.ConnMetadata, method string, err error) {
+			log.Printf("user %q, method %q: %v", conn.User(), method, err)
+		},
 	}
 	p, err := ssh.ParsePrivateKey([]byte(key.ServerPrivateKey))
 	if err != nil {

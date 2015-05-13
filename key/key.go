@@ -1,12 +1,5 @@
 package key
 
-import (
-	"bytes"
-	"log"
-
-	"golang.org/x/crypto/ssh"
-)
-
 var ClientPubkey = `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDVZOxhO0xd0GtHuYEGUgoOLmTLD3uAIssLn/KT827jmy1LX7V235Jpg79VVdRfOBpdBItjaj7XA1MdZobU9otZNgoVnjipNYppkA4AOoZutpBEg/KLpmyBkqgyUlbTJrHy2OiO4PchlV/yjBG33OCASZpAp6dTgjxFKyVexKtUhRNFzUZgzCJZKalH6oT9NGn4jIFO2vmSN81FsA3QJTB1vZyEecqu7FF0ieNlCyJsl+VD3xZojBaBjVTpfWMh3tovxSWMbJj4dlFiIN85gi/nsxHr1zRa0SstPui/aKI5QV1E0WN8hKeQXkEwXm9erDKX4krULX46j7mv+k5IXgED`
 
 const ClientPrivateKey = `
@@ -71,21 +64,17 @@ QKFOuE95M2RA4x/B4AVy1sjo5VyZTnFK5VvlJfRsLiXYh4x7YvE=
 -----END RSA PRIVATE KEY-----
 `
 
+/*
 func NewCertChecker(pubkey []byte) *ssh.CertChecker {
 	key, _, _, _, err := ssh.ParseAuthorizedKey(pubkey)
+	//key, err := ssh.ParsePublicKey(pubkey)
 	if err != nil {
-		log.Fatalf("ParseAuthorizedKey: %v", err)
+		log.Fatalf("ParsePublicKey err: %v", err)
 	}
-	/*
-		validCert, ok := key.(*ssh.Certificate)
-		if !ok {
-			log.Fatalf("key is not *ssh.Certificate (%T)", key)
-		}
-	*/
 	return &ssh.CertChecker{
 		IsAuthority: func(auth ssh.PublicKey) bool {
-			//return bytes.Equal(auth.Marshal(), validCert.SignatureKey.Marshal())
 			return bytes.Equal(auth.Marshal(), key.Marshal())
 		},
 	}
 }
+*/

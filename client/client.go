@@ -48,7 +48,7 @@ func Dial() {
 	if err != nil {
 		panic("Failed to dial: " + err.Error())
 	}
-	log.Printf("connect user:%s, SessionID:%s, ServerVersion:%s, RemoteAddr:%s", client.Conn.User(), client.Conn.SessionID, client.Conn.ServerVersion, client.Conn.RemoteAddr)
+	log.Printf("connect user:%s, SessionID:%#v, ServerVersion:%s, RemoteAddr:%s", client.Conn.User(), client.Conn.SessionID(), client.Conn.ServerVersion(), client.Conn.RemoteAddr())
 	ch, request, err := client.Conn.OpenChannel("test", nil)
 	if err != nil {
 		log.Fatalf("OpenChannel: %v", err)
@@ -56,18 +56,22 @@ func Dial() {
 	log.Printf("Open channel")
 	go ssh.DiscardRequests(request)
 	var wg sync.WaitGroup
+	var once sync.Once
 	wg.Add(1)
+	close := func() {
+		ch.Close()
+		os.Stdin.Close()
+	}
 	go func() {
 		defer wg.Done()
-		//	io.Copy(connection, stdout)
+		defer once.Do(close)
 		io.Copy(ch, os.Stdin)
-		//once.Do(close)
 	}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		defer once.Do(close)
 		io.Copy(os.Stdout, ch)
-		//once.Do(close)
 	}()
 	wg.Wait()
 

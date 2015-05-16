@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 
 	"github.com/masahide/gosshd/key"
 	"golang.org/x/crypto/ssh"
@@ -95,15 +96,18 @@ func handleChannel(newChannel ssh.NewChannel) {
 		}
 		//pipe session to bash and visa-versa
 	*/
-	//var once sync.Once
+	close := func() {
+		connection.Close()
+		os.Stdin.Close()
+	}
+	var once sync.Once
 	go func() {
-		//	io.Copy(connection, stdout)
 		io.Copy(connection, os.Stdin)
-		//once.Do(close)
+		once.Do(close)
 	}()
 	go func() {
 		io.Copy(os.Stdout, connection)
-		//once.Do(close)
+		once.Do(close)
 	}()
 	/*
 		// Fire up bash for this session

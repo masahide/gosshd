@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -36,18 +37,28 @@ func StartServe() {
 		}
 		log.Printf("Accept: %s", tcpConn.RemoteAddr())
 		// Before use, a handshake must be performed on the incoming net.Conn.
-		sshConn, chans, reqs, err := ssh.NewServerConn(tcpConn, config)
+		sshConn, chans, globalReqs, err := ssh.NewServerConn(tcpConn, config)
 		if err != nil {
 			log.Printf("Failed to handshake (%s)", err)
 			continue
 		}
 		log.Printf("ssh.NewServerConn: %s", tcpConn.RemoteAddr())
 
-		log.Printf("New SSH connection from %s (%s)", sshConn.RemoteAddr(), sshConn.ClientVersion())
+		log.Printf("New SSH connection from %s (%s), SessionID:%s, user:%s", sshConn.RemoteAddr(), sshConn.ClientVersion(), sshConn.SessionID(), sshConn.User())
 		// Discard all global out-of-band Requests
-		go ssh.DiscardRequests(reqs)
+		//go ssh.DiscardRequests(globalReqs)
+		go printReq("globalReq", globalReqs)
 		// Accept all channels
 		go handleChannels(chans)
+	}
+}
+
+func printReq(chtype string, reqs <-chan *ssh.Request) {
+	noop := func(r *ssh.Request) {
+		log.Printf("%s Type:%s WantReply:%v Payload:%s", chtype, r.Type, r.WantReply, r.Payload)
+	}
+	for req := range reqs {
+		noop(req)
 	}
 }
 
@@ -56,6 +67,21 @@ func handleChannels(chans <-chan ssh.NewChannel) {
 	for newChannel := range chans {
 		go handleChannel(newChannel)
 	}
+}
+
+type forwardedTCPPayload struct {
+	Addr       string
+	Port       uint32
+	OriginAddr string
+	OriginPort uint32
+}
+
+// RFC 4254 7.2
+type channelOpenDirectMsg struct {
+	Raddr string
+	Rport uint32
+	Laddr string
+	Lport uint32
 }
 
 func handleChannel(newChannel ssh.NewChannel) {
@@ -70,14 +96,30 @@ func handleChannel(newChannel ssh.NewChannel) {
 		}
 	*/
 
+	t := newChannel.ChannelType()
+	switch t {
+	case "forwarded-tcpip":
+	case "direct-tcpip":
+	}
 	// At this point, we have the opportunity to reject the client's
 	// request for another logical connection
 	connection, requests, err := newChannel.Accept()
 	if err != nil {
-		log.Printf("Could not accept channel (%s)", err)
+		errMsg := fmt.Sprintf("Could not accept channel (%s)", err)
+		log.Println(errMsg)
+		newChannel.Reject(ssh.ConnectionFailed, errMsg)
 		return
 	}
 	log.Printf("Accept channel type: %s", newChannel.ChannelType())
+	var payload channelOpenDirectMsg
+	if err := ssh.Unmarshal(newChannel.ExtraData(), &payload); err != nil {
+		errMsg := fmt.Sprintf("could not parse direct-tcpip payload:%s ", err.Error())
+		log.Println(errMsg)
+		newChannel.Reject(ssh.ConnectionFailed, errMsg)
+		return
+	}
+	log.Printf("%# v", payload)
+	go printReq("reqs", requests)
 	/*
 		bash := exec.Command("bash")
 		stdout, err := bash.StdoutPipe()
@@ -193,6 +235,7 @@ func generateConfig() (*ssh.ServerConfig, error) {
 
 	config := &ssh.ServerConfig{
 		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+			return &ssh.Permissions{}, nil //TODO:test
 			if bytes.Compare(okey.Marshal(), key.Marshal()) == 0 {
 				perms := ssh.Permissions{}
 				return &perms, nil
